@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Exercise Timer">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Exercise Timer</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#172033;--muted:#667085;--accent:#2563eb;--danger:#dc2626;--border:#d9dee7}
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit} button{border:0;border-radius:12px;padding:11px 14px;background:#e8ecf2;color:var(--text);font-weight:600}
+button.primary{background:var(--accent);color:white}button.danger{background:#fee2e2;color:#991b1b}
+button:disabled{opacity:.45}.app{max-width:760px;margin:auto;padding:env(safe-area-inset-top) 14px calc(24px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px}h1{font-size:25px;margin:0}h2{font-size:19px;margin:0 0 12px}.sub{color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:7px;margin:8px 0 14px}.tabs button{flex:1}.tabs .active{background:var(--text);color:#fff}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px;margin:10px 0;box-shadow:0 2px 8px #00000008}
+.row{display:flex;gap:9px;align-items:center}.row>*{min-width:0}.between{justify-content:space-between}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+label{display:block;font-size:13px;font-weight:700;color:#475467;margin-bottom:5px}.field{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.exercise{border:1px solid var(--border);border-radius:13px;padding:12px;margin:10px 0}.exercise-title{font-weight:750}.small{font-size:12px;color:var(--muted)}
+.timer{min-height:72vh;display:flex;flex-direction:column;justify-content:center;text-align:center}.phase{font-size:16px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}.exercise-name{font-size:34px;font-weight:850;margin:10px 0}.time{font-size:78px;line-height:1;font-variant-numeric:tabular-nums;font-weight:800}.rep{font-size:18px;margin:12px 0;color:var(--muted)}.progress{height:9px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:24px 0}.progress i{display:block;height:100%;background:var(--accent);width:0}.controls{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}.controls button{min-width:92px}.notice{padding:10px 12px;background:#eff6ff;border-radius:10px;color:#1e40af;font-size:13px}
+.hidden{display:none!important}.empty{padding:28px;text-align:center;color:var(--muted)}
+@media(min-width:620px){.grid{grid-template-columns:repeat(4,1fr)}.time{font-size:100px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><h1>Exercise Timer</h1><div class="sub">Playlists, sets, reps, rests & voice cues</div></div><button id="soundTest">🔊 Test</button></header>
+
+<div class="tabs">
+<button class="active" data-tab="playlists">Playlists</button>
+<button data-tab="editor">Edit</button>
+<button data-tab="player">Timer</button>
+</div>
+
+<section id="playlists">
+<div class="card">
+  <div class="row between"><h2>Your playlists</h2><button class="primary" id="newPlaylist">＋ New</button></div>
+  <div id="playlistList"></div>
+</div>
+<div class="card">
+<h2>Import / Export</h2>
+<div class="row"><button id="exportAll">Export all</button><button id="importBtn">Import JSON</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
+<p class="small">Playlists are also saved automatically on this device.</p>
+</div>
+</section>
+
+<section id="editor" class="hidden">
+<div class="card">
+<div class="row between"><h2>Playlist</h2><button class="danger" id="deletePlaylist">Delete</button></div>
+<label>Name</label><input id="playlistName" class="field" placeholder="e.g. Morning Mobility">
+<div class="grid" style="margin-top:10px">
+<div><label>Voice</label><select id="voice" class="field"><option value="on">On</option><option value="off">Off</option></select></div>
+<div><label>Sound</label><select id="sound" class="field"><option value="beep">Beep</option><option value="double">Double beep</option><option value="high">High beep</option><option value="low">Low beep</option><option value="none">None</option></select></div>
+</div>
+</div>
+<div class="card">
+<div class="row between"><h2>Exercises</h2><button class="primary" id="addExercise">＋ Exercise</button></div>
+<div id="exerciseList"></div>
+</div>
+<div class="card"><button class="primary" style="width:100%" id="savePlaylist">Save playlist</button></div>
+</section>
+
+<section id="player" class="hidden">
+<div class="card" id="playerSetup">
+<div class="row between"><h2>Choose playlist</h2><select id="playerPlaylist" class="field" style="max-width:55%"></select></div>
+<button class="primary" style="width:100%;margin-top:12px" id="startBtn">Start</button>
+</div>
+<div class="timer hidden" id="timerView">
+<div class="phase" id="phase">READY</div>
+<div class="exercise-name" id="timerExercise">Exercise</div>
+<div class="time" id="timerTime">00:00</div>
+<div class="rep" id="timerRep">Rep 1 of 10 · Set 1 of 3</div>
+<div class="progress"><i id="timerProgress"></i></div>
+<div class="controls">
+<button id="pauseBtn">Pause</button><button id="skipBtn">Skip</button><button id="stopBtn">Stop</button>
+</div>
+<div class="notice" style="margin-top:18px">Keep this tab open while the timer runs. iPhone may restrict speech/audio if the screen locks.</div>
+</div>
+</section>
+</div>
+
+<script>
+const KEY='exerciseTimerPlaylistsV1';
+let playlists=JSON.parse(localStorage.getItem(KEY)||'null')||[{
+ id:crypto.randomUUID(),name:'Example Workout',voice:'on',sound:'beep',
+ exercises:[{name:'Push-ups',sets:3,reps:10,repSeconds:5,repRest:2,setRest:60},
+ {name:'Squats',sets:3,reps:12,repSeconds:4,repRest:1,setRest:60}]
+}];
+let currentId=playlists[0]?.id||null, editingId=null, draft=null, timer=null, audioCtx=null, wakeLock=null;
+
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(playlists))}
+function fmt(s){s=Math.max(0,Math.ceil(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function tab(name){document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));['playlists','editor','player'].forEach(x=>$(x).classList.toggle('hidden',x!==name));if(name==='playlists')renderLists();if(name==='editor')renderEditor();if(name==='player')renderPlayerSelect()}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+
+function renderLists(){
+ const el=$('playlistList');el.innerHTML='';
+ if(!playlists.length){el.innerHTML='<div class="empty">No playlists yet.</div>';return}
+ playlists.forEach(p=>{const d=document.createElement('div');d.className='card';d.style.margin='10px 0 0';d.innerHTML=
+ `<div class="row between"><div><b>${esc(p.name)}</b><div class="small">${p.exercises.length} exercise${p.exercises.length!==1?'s':''}</div></div><div class="row"><button data-play="${p.id}">▶</button><button data-edit="${p.id}">Edit</button></div></div>`;el.appendChild(d)});
+ el.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>{currentId=b.dataset.play;tab('player');renderPlayerSelect();$('playerPlaylist').value=currentId;start()});
+ el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editingId=b.dataset.edit;tab('editor')});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderPlayerSelect(){const s=$('playerPlaylist');s.innerHTML=playlists.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');if(currentId)s.value=currentId}
+function blankExercise(){return {name:'Exercise',sets:3,reps:10,repSeconds:30,repRest:0,setRest:60}}
+function renderEditor(){
+ if(!editingId){$('editor').querySelectorAll('input').forEach(x=>x.value='');return}
+ const p=playlists.find(x=>x.id===editingId); if(!p)return;
+ $('playlistName').value=p.name;$('voice').value=p.voice||'on';$('sound').value=p.sound||'beep';
+ const el=$('exerciseList');el.innerHTML='';
+ p.exercises.forEach((e,i)=>{const d=document.createElement('div');d.className='exercise';d.innerHTML=`
+ <div class="row between"><div class="exercise-title">Exercise ${i+1}</div><button class="danger removeEx">Remove</button></div>
+ <div style="margin-top:9px"><label>Name</label><input class="field ex-name" value="${esc(e.name)}"></div>
+ <div class="grid" style="margin-top:9px">
+ <div><label>Sets</label><input class="field ex-sets" type="number" min="1" value="${e.sets}"></div>
+ <div><label>Reps</label><input class="field ex-reps" type="number" min="1" value="${e.reps}"></div>
+ <div><label>Time per rep (sec)</label><input class="field ex-repsec" type="number" min="1" value="${e.repSeconds}"></div>
+ <div><label>Rest between reps (sec)</label><input class="field ex-represt" type="number" min="0" value="${e.repRest}"></div>
+ </div>
+ <div style="margin-top:9px"><label>Rest between sets (sec)</label><input class="field ex-setrest" type="number" min="0" value="${e.setRest}"></div>`;
+ d.querySelector('.removeEx').onclick=()=>{p.exercises.splice(i,1);renderEditor()};el.appendChild(d)})
+}
+$('newPlaylist').onclick=()=>{const p={id:crypto.randomUUID(),name:'New Playlist',voice:'on',sound:'beep',exercises:[blankExercise()]};playlists.push(p);currentId=p.id;editingId=p.id;save();tab('editor')};
+$('addExercise').onclick=()=>{const p=playlists.find(x=>x.id===editingId);if(p){p.exercises.push(blankExercise());renderEditor()}};
+$('savePlaylist').onclick=()=>{
+ const p=playlists.find(x=>x.id===editingId);if(!p)return;
+ p.name=$('playlistName').value.trim()||'Untitled Playlist';p.voice=$('voice').value;p.sound=$('sound').value;
+ p.exercises=[...document.querySelectorAll('.exercise')].map(d=>({name:d.querySelector('.ex-name').value.trim()||'Exercise',
+ sets:+d.querySelector('.ex-sets').value||1,reps:+d.querySelector('.ex-reps').value||1,repSeconds:+d.querySelector('.ex-repsec').value||1,
+ repRest:+d.querySelector('.ex-represt').value||0,setRest:+d.querySelector('.ex-setrest').value||0}));
+ save();currentId=p.id;tab('playlists')
+};
+$('deletePlaylist').onclick=()=>{if(!editingId)return;if(confirm('Delete this playlist?')){playlists=playlists.filter(p=>p.id!==editingId);save();editingId=null;currentId=playlists[0]?.id||null;tab('playlists')}};
+$('exportAll').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,playlists},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='exercise-playlists.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);const incoming=x.playlists||x;if(!Array.isArray(incoming))throw 0;playlists=incoming.map(p=>({...p,id:p.id||crypto.randomUUID(),exercises:Array.isArray(p.exercises)?p.exercises:[]}));currentId=playlists[0]?.id||null;save();renderLists();alert('Imported successfully.')}catch{alert('That file is not a valid exercise playlist export.')}};r.readAsText(f);e.target.value=''};
+
+function beep(kind='beep'){
+ if(kind==='none')return;
+ audioCtx ||= new (window.AudioContext||window.webkitAudioContext)();
+ const now=audioCtx.currentTime, freqs=kind==='high'?[1000]:kind==='low'?[400]:[700];
+ freqs.forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(.0001,now+i*.13);g.gain.exponentialRampToValueAtTime(.16,now+i*.13+.01);g.gain.exponentialRampToValueAtTime(.0001,now+i*.13+.11);o.connect(g).connect(audioCtx.destination);o.start(now+i*.13);o.stop(now+i*.13+.12)})
+}
+$('soundTest').onclick=()=>beep('double');
+
+function speak(text){if(!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.95;speechSynthesis.speak(u)}
+async function lock(){try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen')}catch{}}
+function release(){wakeLock?.release?.();wakeLock=null}
+
+let state=null;
+function start(){
+ const p=playlists.find(x=>x.id===($('playerPlaylist').value||currentId));if(!p||!p.exercises.length)return;
+ currentId=p.id;state={p,ei:0,set:1,rep:1,phase:'rep',remaining:p.exercises[0].repSeconds,total:p.exercises[0].repSeconds,paused:false};
+ $('playerSetup').classList.add('hidden');$('timerView').classList.remove('hidden');lock();announce();renderTimer();clearInterval(timer);timer=setInterval(tick,100);
+}
+function announce(){const e=state.p.exercises[state.ei];beep(state.p.sound);if(state.p.voice==='on')speak(`${e.name}. ${e.reps} reps.`)}
+function tick(){if(!state||state.paused)return;state.remaining-=.1;if(state.remaining<=0){advance();return}renderTimer()}
+function advance(){
+ const e=state.p.exercises[state.ei];
+ if(state.phase==='rep'){
+   if(state.rep<e.reps){state.rep++; if(e.repRest>0){state.phase='repRest';state.remaining=e.repRest;state.total=e.repRest;beep(state.p.sound); if(state.p.voice==='on')speak(`Rest. Next rep ${state.rep}.`)}else{state.remaining=e.repSeconds;state.total=e.repSeconds;beep(state.p.sound)}}
+   else if(state.set<e.sets){state.set++;state.rep=1;if(e.setRest>0){state.phase='setRest';state.remaining=e.setRest;state.total=e.setRest;beep(state.p.sound);if(state.p.voice==='on')speak(`Rest. Next set ${state.set}.`)}else{state.remaining=e.repSeconds;state.total=e.repSeconds;beep(state.p.sound);if(state.p.voice==='on')speak(`${e.name}. Set ${state.set}.`)}}
+   else {if(state.ei<state.p.exercises.length-1){state.ei++;state.set=1;state.rep=1;state.phase='rep';const n=state.p.exercises[state.ei];state.remaining=n.repSeconds;state.total=n.repSeconds;announce()}else{finish()}}
+ }else if(state.phase==='repRest'){state.phase='rep';state.remaining=e.repSeconds;state.total=e.repSeconds;beep(state.p.sound)}
+ else if(state.phase==='setRest'){state.phase='rep';state.remaining=e.repSeconds;state.total=e.repSeconds;beep(state.p.sound)}
+ renderTimer()
+}
+function renderTimer(){
+ if(!state)return;const e=state.p.exercises[state.ei];$('timerExercise').textContent=e.name;
+ $('phase').textContent=state.phase==='rep'?'EXERCISE':state.phase==='repRest'?'REST BETWEEN REPS':'REST BETWEEN SETS';
+ $('timerTime').textContent=fmt(state.remaining);
+ $('timerRep').textContent=`Rep ${state.rep} of ${e.reps} · Set ${state.set} of ${e.sets}`;
+ $('timerProgress').style.width=Math.max(0,Math.min(100,(1-state.remaining/state.total)*100))+'%';
+ $('pauseBtn').textContent=state.paused?'Resume':'Pause'
+}
+function finish(){clearInterval(timer);timer=null;beep('double');if(state.p.voice==='on')speak('Workout complete.');$('phase').textContent='COMPLETE';$('timerExercise').textContent=state.p.name;$('timerTime').textContent='00:00';$('timerRep').textContent='Well done';$('timerProgress').style.width='100%';release()}
+$('startBtn').onclick=start;
+$('pauseBtn').onclick=()=>{if(!state)return;state.paused=!state.paused;if(state.paused)speechSynthesis?.cancel();renderTimer()};
+$('skipBtn').onclick=()=>{if(state)advance()};
+$('stopBtn').onclick=()=>{clearInterval(timer);timer=null;state=null;release();$('timerView').classList.add('hidden');$('playerSetup').classList.remove('hidden')};
+$('playerPlaylist').onchange=e=>currentId=e.target.value;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state&&!state.paused)lock()});
+renderLists();renderPlayerSelect();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+</script>
+</body>
+</html>
